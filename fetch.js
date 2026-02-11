@@ -12,6 +12,12 @@ const MIN_VOLUME = 10000; // Lower for crypto
 function extractCryptoSymbol(question, eventSlug) {
   const text = (question + ' ' + (eventSlug || '')).toLowerCase();
 
+  // Exclude sports contexts (teams, leagues, championships)
+  const sportsContext = /\b(win|wins|won|winner|lose|loss|championship|league|cup|final|stanley cup|nba|nfl|mlb|nhl|tennis|golf|olympic|tournament|match|game|team|player|coach)\b/;
+  if (sportsContext.test(text)) {
+    return null;
+  }
+
   const mappings = [
     { pattern: /\bbitcoin\b|\bbtc\b/, symbol: 'BTCUSDT' },
     { pattern: /\bethereum\b|\beth\b/, symbol: 'ETHUSDT' },
@@ -194,7 +200,7 @@ async function main() {
     return analyzed;
   }));
 
-  const filtered = analyzed.filter(o => o && o.maxSpread >= MIN_SPREAD && o.maxSpread <= MAX_SPREAD && o.volume >= MIN_VOLUME && o.timeLeft > 0)
+  const filtered = analyzed.filter(o => o && o.cryptoSymbol && o.maxSpread >= MIN_SPREAD && o.maxSpread <= MAX_SPREAD && o.volume >= MIN_VOLUME && o.timeLeft > 0)
                            .sort((a, b) => a.maxSpread - b.maxSpread);
 
   console.log(`Found ${filtered.length} crypto opportunities with spread ${MIN_SPREAD*100}%-${MAX_SPREAD*100}% and volume >= ${MIN_VOLUME}`);
