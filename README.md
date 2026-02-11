@@ -1,30 +1,37 @@
 # 🚀 Crypto Scalping Dashboard
 
-Real-time Polymarket crypto opportunities with 15-minute Binance chart integration.
+Polymarket crypto opportunities with 15-minute price history snapshots.
 
-**Live Demo:** (to be deployed on GitHub Pages)
+**Live Demo:** https://emalaman.github.io/crypto-scalping-dashboard/
 
 ---
 
 ## ✨ Features
 
-- 🔍 **Crypto-focused**: Filters Polymarket markets for crypto-related events
-- 📈 **15min Charts**: Real-time candlestick charts from Binance
+- 🔍 **Crypto-focused**: Filters Polymarket markets for crypto-related events (excludes sports teams)
+- 📈 **15min History Charts**: Line charts showing YES price evolution from Polymarket snapshots (collected every 15min)
 - 🎯 **Scalping Signals**: BUY/SELL signals based on spread analysis
 - 🎨 **Modern UI**: Dark theme with responsive grid layout
-- 📊 **Advanced Filters**: Filter by signal strength and spread
-- ⏱️ **Auto-refresh**: Data updates every 5 minutes (via GitHub Actions)
+- 📊 **Advanced Filters**: Filter by signal, spread, and history timeframe
+- ⏱️ **Auto-refresh**: Data updates every 15 minutes (via GitHub Actions)
 
 ---
 
-## 📊 Current Opportunities (Sample)
+## 📊 Data Sources & Charting
 
-| Market | Symbol | Signal | Spread | Volume | Chart |
-|--------|--------|--------|--------|--------|-------|
+⚠️ **Important**: The Polymarket Gamma API does not expose dedicated 15-minute markets (`/crypto/15M` page uses a different data source). This dashboard shows **all crypto-related markets** (any duration) with the following:
+
+- **Market data**: Polymarket Gamma API (prices, volume, end date)
+- **Historical prices**: Snapshots taken every 15 minutes and stored locally (`historical/` directory)
+- **Charts**: Line graphs of YES contract prices over time (from our own snapshots)
+
+Currently, the only opportunity meeting our criteria (spread 1.5%-50%, volume > $10k, active, with history) is:
+
+| Market | Symbol | Signal | Spread | Volume | History |
+|--------|--------|--------|--------|--------|---------|
 | Will bitcoin hit $1m before GTA VI? | BTCUSDT | BUY | 1.5% | $3.08M | ✅ |
-| Will the Colorado Avalanche win... | AVAXUSDT | STRONG_BUY | 28% | $1.19M | ✅ |
 
-*(Note: AVAX chart included, though market is about NHL team)*
+*Note: As more snapshots are collected (every 15min), the chart will show a line with multiple points.*
 
 ---
 
@@ -34,7 +41,7 @@ Real-time Polymarket crypto opportunities with 15-minute Binance chart integrati
 - **Charts**: TradingView Lightweight Charts
 - **Data Sources**:
   - Polymarket Gamma API (market data)
-  - Binance API (15min candle data)
+  - Custom snapshots (15min intervals, stored in `historical/`)
 - **Deployment**: GitHub Pages + GitHub Actions
 
 ---
@@ -44,9 +51,10 @@ Real-time Polymarket crypto opportunities with 15-minute Binance chart integrati
 ```bash
 cd crypto-scalping-dashboard
 npm install
-npm run fetch   # Fetch market data + Binance candles
-npm run generate # Generate index.html
-npm run build   # Fetch + generate
+npm run collect-history  # Take 15min snapshot of crypto markets
+npm run fetch            # Fetch market data + load historical snapshots
+npm run generate         # Generate index.html
+npm run build            # collect-history + fetch + generate
 ```
 
 Open `index.html` in browser.
@@ -91,21 +99,27 @@ crypto-scalping-dashboard/
 
 ## 🔄 How It Works
 
-1. **fetch.js**:
+1. **collect-history.js**:
+   - Pulls active crypto markets from Polymarket API
+   - Takes a snapshot of YES/NO prices and volume
+   - Appends to `historical/{marketId}.json` (circular buffer, max 96 points = 24h)
+   - Updates `history-summary.json`
+
+2. **fetch.js**:
    - Pulls active markets from Polymarket API
-   - Filters by crypto keywords (bitcoin, ethereum, solana, etc.)
-   - Maps each market to a Binance symbol (e.g., BTC → BTCUSDT)
-   - Fetches 100 candles (15min intervals) from Binance
+   - Filters by crypto keywords (bitcoin, ethereum, solana, etc.) and excludes sports teams
+   - Loads historical snapshots from `historical/` directory
+   - Filters by spread (1.5%-50%), volume (>$10k), and active status
    - Outputs `data.json`
 
-2. **generate.js**:
+3. **generate.js**:
    - Loads `data.json` + `index.html` template
    - Replaces `%OPPORTUNITIES_JSON%` with data
    - Writes final `index.html`
 
-3. **GitHub Actions** (deploy.yml):
-   - Runs every 5 minutes or on push
-   - Repeats fetch → generate → commit → push
+4. **GitHub Actions** (deploy.yml):
+   - Runs every 15 minutes or on push
+   - Repeats: collect-history → fetch → generate → commit → push
    - Triggers GitHub Pages rebuild
 
 ---
@@ -131,9 +145,10 @@ Uses [Lightweight Charts](https://tradingview.github.io/lightweight-charts/) by 
 
 ## 🐛 Known Issues
 
-1. **False positives**: Some non-crypto markets may match crypto symbols (e.g., "Avalanche" hockey team → AVAX). Needs smarter filtering.
-2. **Symbol mapping**: Not all crypto projects are mapped yet. Can be extended in `extractCryptoSymbol()`.
-3. **Rate limits**: Binance API has public rate limits (1200 weight/minute). Should be fine for ~20 symbols.
+1. **Limited 15min markets**: The Polymarket Gamma API does not surface the `/crypto/15M` markets directly. This dashboard shows all crypto events (any duration). Historical snapshots are still collected every 15min.
+2. **False positives**: Some non-crypto markets may slip through (e.g., "Avalanche" hockey team). Sports-team blacklist mitigates this.
+3. **Symbol mapping**: Not all crypto projects are mapped yet. Can be extended in `extractCryptoSymbol()`.
+4. **Rate limits**: Gamma API rate limits may affect large fetches; current limit=500 is safe.
 
 ---
 
@@ -141,8 +156,10 @@ Uses [Lightweight Charts](https://tradingview.github.io/lightweight-charts/) by 
 
 - **Change page size**: Edit `PAGE_SIZE` in `index.html` template
 - **Adjust filters**: Modify `MIN_SPREAD`, `MAX_SPREAD`, `MIN_VOLUME` in `fetch.js`
-- **Chart timeframe**: Change `limit` parameter in `fetchCandleData()` (currently 100 candles × 15min = 25 hours)
+- **History buffer size**: Change `MAX_HISTORY_POINTS` in `collect-history.js` (default 96 = 24h at 15min intervals)
+- **Snapshot frequency**: Adjust GitHub Actions schedule in `.github/workflows/deploy.yml`
 - **Template styling**: Edit CSS in `<head>` of `index.html`
+- **Symbol mapping**: Extend `extractCryptoSymbol()` in `fetch.js` to recognize more crypto tokens
 
 ---
 
