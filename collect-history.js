@@ -28,10 +28,16 @@ async function fetchCryptoMarkets() {
   let markets = JSON.parse(text);
   if (!Array.isArray(markets)) markets = markets.markets || markets.data || [];
 
-  // Filter crypto
+  // Filter crypto markets (any duration) - exclude sports teams
   return markets.filter(m => {
     const text = (m.question + ' ' + (m.events?.[0]?.slug || '')).toLowerCase();
-    return CRYPTO_KEYWORDS.test(text);
+    const isCrypto = CRYPTO_KEYWORDS.test(text);
+    
+    // Exclude specific sports teams
+    const sportsTeams = /\b(colorado avalanche|los angeles lakers|new york knicks|chicago bulls|boston celtics|golden state warriors|dallas mavericks|houston rockets|san antonio spurs|phoenix suns|miami heat|orlando magic|atlanta hawks|cleveland cavaliers|oklahoma city thunder|milwaukee bucks|toronto raptors|indiana pacers|minnesota timberwolves|detroit pistons|charlotte hornets|washington wizards|brooklyn nets|sacramento kings|memphis grizzlies|utah jazz|new orleans pelicans)\b/;
+    const isSportsTeam = sportsTeams.test(text);
+    
+    return isCrypto && !isSportsTeam;
   });
 }
 

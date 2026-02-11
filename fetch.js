@@ -10,6 +10,9 @@ const MAX_SPREAD = 0.50;
 const MIN_VOLUME = 10000;
 const HIST_DIR = 'historical';
 
+// Crypto keywords detection
+const CRYPTO_KEYWORDS = /\b(bitcoin|btc|ethereum|eth|solana|sol|polkadot|dot|cardano|ada|avalanche|avax|chainlink|link|polygon|matic|litecoin|ltc|dogecoin|doge|shiba|shib|arbitrum|arb|optimism|op|curve|crv|uniswap|uni|aave|compound|comp|maker|mkr|ripple|xrp|stellar|xlm|monero|xmr|zcash|zec|dash|etc|neo|iota|trx|eos|cosmos|atom|tezos|xtz|flow|chiliz|chz|sandbox|sand|decentraland|mana|axie|axs|crypto|blockchain|defi|nft|web3)\b/;
+
 // Load historical data for a market
 function loadHistory(marketId) {
   const histPath = path.join(HIST_DIR, `${marketId}.json`);
@@ -28,9 +31,9 @@ function loadHistory(marketId) {
 function extractCryptoSymbol(question, eventSlug) {
   const text = (question + ' ' + (eventSlug || '')).toLowerCase();
 
-  // Exclude sports contexts
-  const sportsContext = /\b(win|wins|won|winner|lose|loss|championship|league|cup|final|stanley cup|nba|nfl|mlb|nhl|tennis|golf|olympic|tournament|match|game|team|player|coach)\b/;
-  if (sportsContext.test(text)) {
+  // Exclude sports contexts more narrowly - only when combined with team/league names
+  const sportsTeams = /\b(colorado avalanche|los angeles lakers|new york knicks|chicago bulls|boston celtics|golden state warriors|dallas mavericks|houston rockets|san antonio spurs|phoenix suns|miami heat|orlando magic|atlanta hawks|cleveland cavaliers|oklahoma city thunder|milwaukee bucks|toronto raptors|indiana pacers|minnesota timberwolves|detroit pistons|charlotte hornets|washington wizards|brooklyn nets|sacramento kings|memphis grizzlies|utah jazz|new orleans pelicans)\b/;
+  if (sportsTeams.test(text)) {
     return null;
   }
 
@@ -176,11 +179,14 @@ async function main() {
   // Fetch markets
   const markets = await fetchMarkets();
 
-  // Filter crypto
+  // Filter crypto markets (any duration) - exclude sports teams
   const cryptoMarkets = markets.filter(m => {
     const text = (m.question + ' ' + (m.events?.[0]?.slug || '')).toLowerCase();
-    const cryptoKeywords = /\b(bitcoin|btc|ethereum|eth|solana|sol|polkadot|dot|cardano|ada|avalanche|avax|chainlink|link|polygon|matic|litecoin|ltc|dogecoin|doge|shiba|shib|arbitrum|arb|optimism|op|curve|crv|uniswap|uni|aave|compound|comp|maker|mkr|ripple|xrp|stellar|xlm|monero|xmr|zcash|zec|dash|etc|neo|iota|trx|eos|cosmos|atom|tezos|xtz|flow|chiliz|chz|sandbox|sand|decentraland|mana|axie|axs|crypto|blockchain|defi|nft|web3)\b/;
-    return cryptoKeywords.test(text);
+    const isCrypto = CRYPTO_KEYWORDS.test(text);
+    // Exclude sports teams specifically
+    const sportsTeams = /\b(colorado avalanche|los angeles lakers|new york knicks|chicago bulls|boston celtics|golden state warriors|dallas mavericks|houston rockets|san antonio spurs|phoenix suns|miami heat|orlando magic|atlanta hawks|cleveland cavaliers|oklahoma city thunder|milwaukee bucks|toronto raptors|indiana pacers|minnesota timberwolves|detroit pistons|charlotte hornets|washington wizards|brooklyn nets|sacramento kings|memphis grizzlies|utah jazz|new orleans pelicans)\b/;
+    const isSportsTeam = sportsTeams.test(text);
+    return isCrypto && !isSportsTeam;
   });
 
   console.log(`Found ${cryptoMarkets.length} crypto-related markets`);
@@ -204,10 +210,9 @@ async function main() {
     analyzed.push(analyzedMarket);
   }
 
-  // Filter by criteria AND require valid cryptoSymbol AND have some history
+  // Filter by criteria: must be 15min crypto event (already filtered), have history, and meet spread/volume/time
   const filtered = analyzed.filter(o => 
     o && 
-    o.cryptoSymbol && 
     o.maxSpread >= MIN_SPREAD && 
     o.maxSpread <= MAX_SPREAD && 
     o.volume >= MIN_VOLUME && 

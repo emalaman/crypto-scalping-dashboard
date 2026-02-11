@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-02-11T16:10:41.226Z",
+  "generatedAt": "2026-02-11T16:35:53.857Z",
   "totalCount": 1,
   "filters": {
     "minSpread": 0.015,
@@ -19,18 +19,18 @@
       "underpricedSide": "YES",
       "underpricedPrice": 0.485,
       "signal": "BUY",
-      "volume": 3081013.327868,
-      "liquidity": 158714.8422,
-      "updatedAt": "2026-02-11T16:04:36.959404Z",
-      "timeLeft": 14629758775,
+      "volume": 3081041.417868,
+      "liquidity": 156465.18,
+      "updatedAt": "2026-02-11T16:31:48.946518Z",
+      "timeLeft": 14628246143,
       "marketUrl": "https://polymarket.com/event/what-will-happen-before-gta-vi/will-bitcoin-hit-1m-before-gta-vi-872",
       "cryptoSymbol": "BTCUSDT",
       "history": [
         {
-          "t": 1770825876,
+          "t": 1770827161,
           "yes": 0.485,
           "no": 0.515,
-          "v": 3081013.327868
+          "v": 3081030.787868
         }
       ],
       "historyPoints": 1
