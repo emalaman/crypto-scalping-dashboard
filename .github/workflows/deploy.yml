@@ -26,6 +26,11 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
+    - name: Collect 15min history
+      run: npm run collect-history
+      env:
+        POLYMARKET_API_KEY: ${{ secrets.POLYMARKET_API_KEY }}
+    
     - name: Fetch crypto data
       run: npm run fetch
       env:
