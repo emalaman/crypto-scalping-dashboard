@@ -43,7 +43,7 @@ jobs:
           echo "No changes to deploy"
         else
           git commit -m "🔄 Update crypto dashboard - $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git push origin main
+          git push https://x-access-token:${{ secrets.DEPLOY_TOKEN }}@github.com/${{ github.repository }} main
         fi
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
