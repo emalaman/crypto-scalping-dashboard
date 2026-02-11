@@ -239,8 +239,9 @@
             <h3 class="text-lg font-bold text-white line-clamp-2">${o.question}</h3>
             <span class="badge badge-${o.signal.replace(/_/g, '_')}">${o.signal}</span>
           </div>
-          <div class="text-xs text-gray-400 mb-2 flex gap-4">
+          <div class="text-xs text-gray-400 mb-2 flex gap-4 flex-wrap">
             <span>Symbol: <span class="text-white font-mono">${o.cryptoSymbol || 'N/A'}</span></span>
+            <span>Duration: ${o.durationHours}h</span>
             <span>Ends: ${Math.floor(o.timeLeft/(1000*60*60*24))}d</span>
             <span>History: ${historyPoints} points (${duration}h)</span>
           </div>
