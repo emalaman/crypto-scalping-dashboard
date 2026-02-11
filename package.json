@@ -1,15 +1,16 @@
 {
   "name": "crypto-scalping-dashboard",
   "version": "1.0.0",
-  "description": "Crypto scalping dashboard for Polymarket with 15min charts",
+  "description": "Crypto Polymarket scalping dashboard with 15min price history charts",
   "main": "generate.js",
   "scripts": {
     "fetch": "node fetch.js",
+    "collect-history": "node collect-history.js",
     "generate": "node generate.js",
-    "build": "npm run fetch && npm run generate",
-    "deploy": "npm run build && git add index.html data.json && git commit -m 'Deploy' && git push origin main"
+    "build": "npm run fetch && npm run collect-history && npm run generate",
+    "deploy": "npm run build && git add . && git commit -m 'Deploy' && git push origin main"
   },
-  "keywords": ["polymarket", "crypto", "scalping", "dashboard"],
+  "keywords": ["polymarket", "crypto", "scalping", "dashboard", "15min"],
   "author": "Emilio Malaman",
   "license": "MIT",
   "dependencies": {

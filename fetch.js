@@ -1,18 +1,34 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
+const path = require('path');
 const fetch = require('node-fetch');
 
 const API_URL = 'https://gamma-api.polymarket.com/markets';
 const MIN_SPREAD = 0.015;
 const MAX_SPREAD = 0.50;
-const MIN_VOLUME = 10000; // Lower for crypto
+const MIN_VOLUME = 10000;
+const HIST_DIR = 'historical';
 
-// Crypto symbols mapping from question keywords
+// Load historical data for a market
+function loadHistory(marketId) {
+  const histPath = path.join(HIST_DIR, `${marketId}.json`);
+  if (!fs.existsSync(histPath)) {
+    return null;
+  }
+  try {
+    const data = JSON.parse(fs.readFileSync(histPath, 'utf8'));
+    return Array.isArray(data) ? data : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Crypto symbols mapping
 function extractCryptoSymbol(question, eventSlug) {
   const text = (question + ' ' + (eventSlug || '')).toLowerCase();
 
-  // Exclude sports contexts (teams, leagues, championships)
+  // Exclude sports contexts
   const sportsContext = /\b(win|wins|won|winner|lose|loss|championship|league|cup|final|stanley cup|nba|nfl|mlb|nhl|tennis|golf|olympic|tournament|match|game|team|player|coach)\b/;
   if (sportsContext.test(text)) {
     return null;
@@ -43,15 +59,15 @@ function extractCryptoSymbol(question, eventSlug) {
     { pattern: /\bzcash\b|\bzec\b/, symbol: 'ZECUSDT' },
     { pattern: /\bdash\b/, symbol: 'DASHUSDT' },
     { pattern: /\betc\b/, symbol: 'ETCUSDT' },
-    { pattern: /\bneeo\b|\bneo\b/, symbol: 'NEOUSDT' },
+    { pattern: /\bneo\b|\bneeo\b/, symbol: 'NEOUSDT' },
     { pattern: /\biota\b|\bmiota\b/, symbol: 'IOTAUSDT' },
     { pattern: /\btron\b|\btrx\b/, symbol: 'TRXUSDT' },
     { pattern: /\beos\b/, symbol: 'EOSUSDT' },
     { pattern: /\bcosmos\b|\batom\b/, symbol: 'ATOMUSDT' },
     { pattern: /\btezos\b|\bxtz\b/, symbol: 'XTZUSDT' },
-    { pattern: /\bhash\b|\bflow\b/, symbol: 'FLOWUSDT' },
+    { pattern: /\bflow\b|\bhash\b/, symbol: 'FLOWUSDT' },
     { pattern: /\bchiliz\b|\bchz\b/, symbol: 'CHZUSDT' },
-    { pattern: /\bthe\s+sandbox\b|\bsand\b/, symbol: 'SANDUSDT' },
+    { pattern: /\bsandbox\b|\bsand\b/, symbol: 'SANDUSDT' },
     { pattern: /\bdecentraland\b|\bmana\b/, symbol: 'MANAUSDT' },
     { pattern: /\baxie\s+infinity\b|\baxs\b/, symbol: 'AXSUSDT' },
     { pattern: /\bthailand\b|\bthai\b/, symbol: 'THAIUSDT' }
@@ -63,40 +79,32 @@ function extractCryptoSymbol(question, eventSlug) {
     }
   }
 
-  // Fallback: try to extract price target
+  // Check for price targets
   const priceMatch = text.match(/\$(\d+(?:\.\d+)?)\s*(?:k|m|b|milhão|milh[ãa]o|bilh[ãa]o|trilh[ãa]o)?/i);
   if (priceMatch) {
-    return 'BTCUSDT'; // Default to BTC if price mentioned
+    return 'BTCUSDT';
   }
 
   return null;
 }
 
-async function fetchCandleData(symbol, limit = 100) {
-  try {
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=15m&limit=${limit}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    return data.map(candle => ({
-      time: parseInt(candle[0]),
-      open: parseFloat(candle[1]),
-      high: parseFloat(candle[2]),
-      low: parseFloat(candle[3]),
-      close: parseFloat(candle[4]),
-      volume: parseFloat(candle[5])
-    }));
-  } catch (error) {
-    console.log(`Failed to fetch candles for ${symbol}: ${error.message}`);
-    return null;
+function getSignal(price, side) {
+  if (side === 'YES') {
+    if (price < 0.48) return 'STRONG_BUY';
+    if (price < 0.49) return 'BUY';
+    return 'NEUTRAL';
+  } else if (side === 'NO') {
+    if (price < 0.48) return 'STRONG_SELL';
+    if (price < 0.49) return 'SELL';
+    return 'NEUTRAL';
   }
+  return 'NEUTRAL';
 }
 
 async function fetchMarkets() {
   try {
     const url = `${API_URL}?active=true&closed=false&limit=500`;
-    console.log(`Fetching from ${url}`);
+    console.log(`Fetching markets from ${url}`);
     const res = await fetch(url);
     const text = await res.text();
 
@@ -148,7 +156,7 @@ function analyzeMarket(market) {
   return {
     id: market.id,
     question: market.question,
-    category: 'Crypto', // Force crypto category
+    category: 'Crypto',
     yes, no,
     yesSpread, noSpread, maxSpread,
     underpricedSide, underpricedPrice,
@@ -162,24 +170,13 @@ function analyzeMarket(market) {
   };
 }
 
-function getSignal(price, side) {
-  if (side === 'YES') {
-    if (price < 0.48) return 'STRONG_BUY';
-    if (price < 0.49) return 'BUY';
-    return 'NEUTRAL';
-  } else if (side === 'NO') {
-    if (price < 0.48) return 'STRONG_SELL';
-    if (price < 0.49) return 'SELL';
-    return 'NEUTRAL';
-  }
-  return 'NEUTRAL';
-}
-
 async function main() {
-  console.log('Fetching crypto markets from Polymarket API...');
+  console.log('Fetching and analyzing crypto markets with historical data...');
+
+  // Fetch markets
   const markets = await fetchMarkets();
 
-  console.log('Filtering for crypto-related markets...');
+  // Filter crypto
   const cryptoMarkets = markets.filter(m => {
     const text = (m.question + ' ' + (m.events?.[0]?.slug || '')).toLowerCase();
     const cryptoKeywords = /\b(bitcoin|btc|ethereum|eth|solana|sol|polkadot|dot|cardano|ada|avalanche|avax|chainlink|link|polygon|matic|litecoin|ltc|dogecoin|doge|shiba|shib|arbitrum|arb|optimism|op|curve|crv|uniswap|uni|aave|compound|comp|maker|mkr|ripple|xrp|stellar|xlm|monero|xmr|zcash|zec|dash|etc|neo|iota|trx|eos|cosmos|atom|tezos|xtz|flow|chiliz|chz|sandbox|sand|decentraland|mana|axie|axs|crypto|blockchain|defi|nft|web3)\b/;
@@ -187,26 +184,41 @@ async function main() {
   });
 
   console.log(`Found ${cryptoMarkets.length} crypto-related markets`);
-  const analyzed = await Promise.all(cryptoMarkets.map(async market => {
-    const analyzed = analyzeMarket(market);
-    if (!analyzed) return null;
 
-    // Fetch candle data if we have a symbol
-    if (analyzed.cryptoSymbol) {
-      console.log(`Fetching candles for ${analyzed.cryptoSymbol}...`);
-      analyzed.candleData = await fetchCandleData(analyzed.cryptoSymbol, 100);
+  // Analyze and load history
+  const analyzed = [];
+  for (const market of cryptoMarkets) {
+    const analyzedMarket = analyzeMarket(market);
+    if (!analyzedMarket) continue;
+
+    // Load historical data
+    const history = loadHistory(market.id);
+    if (history && history.length > 0) {
+      analyzedMarket.history = history;
+      analyzedMarket.historyPoints = history.length;
+    } else {
+      analyzedMarket.history = null;
+      analyzedMarket.historyPoints = 0;
     }
 
-    return analyzed;
-  }));
+    analyzed.push(analyzedMarket);
+  }
 
-  const filtered = analyzed.filter(o => o && o.cryptoSymbol && o.maxSpread >= MIN_SPREAD && o.maxSpread <= MAX_SPREAD && o.volume >= MIN_VOLUME && o.timeLeft > 0)
-                           .sort((a, b) => a.maxSpread - b.maxSpread);
+  // Filter by criteria AND require valid cryptoSymbol AND have some history
+  const filtered = analyzed.filter(o => 
+    o && 
+    o.cryptoSymbol && 
+    o.maxSpread >= MIN_SPREAD && 
+    o.maxSpread <= MAX_SPREAD && 
+    o.volume >= MIN_VOLUME && 
+    o.timeLeft > 0 &&
+    o.historyPoints > 0
+  ).sort((a, b) => a.maxSpread - b.maxSpread);
 
-  console.log(`Found ${filtered.length} crypto opportunities with spread ${MIN_SPREAD*100}%-${MAX_SPREAD*100}% and volume >= ${MIN_VOLUME}`);
+  console.log(`Found ${filtered.length} crypto opportunities with history`);
 
   if (filtered.length === 0 && analyzed.length > 0) {
-    console.warn('No opportunities after filters. Using all analyzed crypto markets...');
+    console.warn('No opportunities with history. Using all analyzed crypto markets (even without history)...');
     const allCrypto = analyzed.filter(Boolean).sort((a, b) => a.maxSpread - b.maxSpread);
     console.log(`Using all ${allCrypto.length} crypto markets`);
     filtered = allCrypto;
@@ -220,7 +232,7 @@ async function main() {
   };
 
   fs.writeFileSync('data.json', JSON.stringify(output, null, 2));
-  console.log('✅ data.json generated with', filtered.length, 'crypto opportunities');
+  console.log('✅ data.json generated with', filtered.length, 'crypto opportunities (with 15min history)');
 }
 
 main().catch(err => {
