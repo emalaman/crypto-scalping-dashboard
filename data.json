@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-02-11T16:35:53.857Z",
+  "generatedAt": "2026-02-11T16:36:41.167Z",
   "totalCount": 1,
   "filters": {
     "minSpread": 0.015,
@@ -22,7 +22,9 @@
       "volume": 3081041.417868,
       "liquidity": 156465.18,
       "updatedAt": "2026-02-11T16:31:48.946518Z",
-      "timeLeft": 14628246143,
+      "timeLeft": 14628198833,
+      "durationHours": 10920,
+      "is15Min": false,
       "marketUrl": "https://polymarket.com/event/what-will-happen-before-gta-vi/will-bitcoin-hit-1m-before-gta-vi-872",
       "cryptoSymbol": "BTCUSDT",
       "history": [

@@ -146,13 +146,20 @@ function analyzeMarket(market) {
     marketUrl = `https://polymarket.com/event/${market.events[0].slug}/${market.slug}`;
   }
 
-  // Calculate timeLeft
+  // Calculate timeLeft and duration
   let timeLeft = 0;
-  if (market.endDateIso) {
-    const endTime = new Date(market.endDateIso).getTime();
-    timeLeft = Math.max(0, endTime - Date.now());
-  } else if (market.endDate) {
-    const endTime = new Date(market.endDate).getTime();
+  let durationHours = 0;
+  const startIso = market.startDateIso || market.startDate;
+  const endIso = market.endDateIso || market.endDate;
+  
+  if (startIso && endIso) {
+    const startTime = new Date(startIso).getTime();
+    const endTime = new Date(endIso).getTime();
+    durationHours = Math.round((endTime - startTime) / (1000 * 60 * 60));
+  }
+  
+  if (endIso) {
+    const endTime = new Date(endIso).getTime();
     timeLeft = Math.max(0, endTime - Date.now());
   }
 
@@ -168,6 +175,8 @@ function analyzeMarket(market) {
     liquidity: parseFloat(market.liquidity) || 0,
     updatedAt: market.updatedAt,
     timeLeft,
+    durationHours,
+    is15Min: durationHours <= 1, // approximate: 15min markets have very short total duration
     marketUrl,
     cryptoSymbol: extractCryptoSymbol(market.question, market.events?.[0]?.slug)
   };
@@ -210,7 +219,7 @@ async function main() {
     analyzed.push(analyzedMarket);
   }
 
-  // Filter by criteria: must be 15min crypto event (already filtered), have history, and meet spread/volume/time
+  // Filter by spread, volume, timeLeft, and history
   const filtered = analyzed.filter(o => 
     o && 
     o.maxSpread >= MIN_SPREAD && 
